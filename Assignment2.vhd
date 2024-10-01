@@ -9,7 +9,7 @@ entity JTAG_FSM is
         TCK : in std_logic;            -- Clock signal for the FSM (Test Clock)
         TMS : in std_logic;            -- Test Mode Select input signal for state transitions
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
-        TDI : out std_logic;           -- Serial data output pin (Test Data In)
+        TDI : out std_logic;          -- Serial data output pin (Test Data In)
         TDO : in std_logic             -- Serial data input pin (Test Data Out)
     );
 end JTAG_FSM;
@@ -27,8 +27,8 @@ architecture Behavioral of JTAG_FSM is
     signal current_state, next_state : state_type;
 
     -- 32-bit internal registers for data handling
-    signal curr_local_dr_reg : std_logic_vector(31 downto 0) := x"C0FFEE00";  -- Initialized to 0xC0FFEE00
-    signal next_local_dr_reg : std_logic_vector(31 downto 0) := (others => '0');  -- Uninitialized at the start
+    signal curr_local_dr_reg : std_logic_vector(31 downto 0);  
+    signal next_local_dr_reg : std_logic_vector(31 downto 0);
 
     -- 32-bit counter for tracking shifts during the ShiftDR state
     signal bit_counter : integer range 0 to 31 := 0;
@@ -177,14 +177,53 @@ begin
     State_reg_p: process(TCK, reset)
     begin
         if reset = '1' then
-            current_state <= TestLogicReset;  -- Initialize the state machine to TestLogicReset on reset
+            -- Reset state and registers
+            current_state <= TestLogicReset;
+            curr_local_dr_reg <= x"C0FFEE00";
+            next_local_dr_reg <= (others => '0');
+            bit_counter <= 0;
+            TDI <= '0';
+            
+            
+            
+      
         elsif rising_edge(TCK) then
-            current_state <= next_state;  -- Update the current state with the next state on TCK's rising edge
-        end if;
-    end process;
+            -- State Transition: Update current state
+            current_state <= next_state;
+            end if;
+end process;
 
-    -- Other logic for data shifting, register updates, and handling TDI/TDO would be added here.
-    -- For example, you would implement the logic to shift bits in and out of `curr_local_dr_reg` during the ShiftDR state.
-    -- You would also need to handle the transfer of `next_local_dr_reg` to `curr_local_dr_reg` in the UpdateDR state.
+Data_Shift_p: process(TCK)
+begin
+    if rising_edge(TCK) then
+        -- Default assignments to avoid latches
+        TDI <= '0';  -- Set default value for TDI
+        next_local_dr_reg <= next_local_dr_reg;  -- Maintain current value unless in ShiftDR
+
+        -- Data Shifting Logic in ShiftDR state
+        if current_state = ShiftDR then
+            -- Stay in this state for 32 clock cycles
+            -- Shift out data from curr_local_dr_reg to TDI (MSB first)
+            TDI <= curr_local_dr_reg(31);
+
+            -- Shift in data from TDO into next_local_dr_reg (LSB first)
+            next_local_dr_reg <= next_local_dr_reg(30 downto 0) & TDO;
+
+            -- Increment the bit counter
+            if bit_counter < 31 then
+                bit_counter <= bit_counter + 1;
+            else
+                bit_counter <= 0;  -- Reset counter after 32 bits
+            end if;
+        end if;
+
+        -- Register Update Logic in UpdateDR state
+        if current_state = UpdateDR then
+            -- Update curr_local_dr_reg with the value in next_local_dr_reg
+            curr_local_dr_reg <= next_local_dr_reg;
+        end if;
+    end if;
+end process;
+
 
 end Behavioral;
