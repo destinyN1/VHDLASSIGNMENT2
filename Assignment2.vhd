@@ -6,8 +6,8 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 -- Entity declaration for the JTAG FSM
 entity JTAG_FSM is
     Port (
-        TCK : in std_logic;            -- Clock signal for the FSM (Test Clock)
-        TMS : in std_logic;            -- Test Mode Select input signal for state transitions
+        TCK : in std_logic;        -- Clock signal for the FSM (Test Clock)
+        TMS : in std_logic;         -- Test Mode Select input signal for state transitions
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
         TDI : out std_logic;          -- Serial data output pin (Test Data In)
         TDO : in std_logic             -- Serial data input pin (Test Data Out)
@@ -177,24 +177,20 @@ begin
     State_reg_p: process(TCK, reset)
     begin
         if reset = '1' then
-            -- Reset state and registers
+             --Reset state and registers
             current_state <= TestLogicReset;
-            curr_local_dr_reg <= x"C0FFEE00";
-            next_local_dr_reg <= (others => '0');
-            bit_counter <= 0;
-            TDI <= '0';
-            
-            
-            
-      
-        elsif rising_edge(TCK) then
+            --curr_local_dr_reg <= x"C0FFEE00";
+            --next_local_dr_reg <= (others => '0');
+            --bit_counter <= 0;                
+        elsif rising_edge(TCK) and reset = '0' then
             -- State Transition: Update current state
             current_state <= next_state;
+         
             end if;
 end process;
 
-Data_Shift_p: process(TCK)
-begin
+    Data_Shift_p: process(TCK)
+    begin
     if rising_edge(TCK) then
         -- Default assignments to avoid latches
         TDI <= '0';  -- Set default value for TDI
@@ -221,6 +217,7 @@ begin
         if current_state = UpdateDR then
             -- Update curr_local_dr_reg with the value in next_local_dr_reg
             curr_local_dr_reg <= next_local_dr_reg;
+            --need some TDI assignment here?
         end if;
     end if;
 end process;
