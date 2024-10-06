@@ -10,7 +10,7 @@ entity JTAG_FSM is
         TMS : in std_logic;         -- Test Mode Select input signal for state transitions
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
         TDI : out std_logic;          -- Serial data output pin (Test Data In)
-        TDO : in std_logic             -- Serial data input pin (Test Data Out)
+        TDO : in std_logic_vector(31 downto 0)           -- Serial data input pin (Test Data Out)
     );
 end JTAG_FSM;
 
@@ -27,7 +27,7 @@ architecture Behavioral of JTAG_FSM is
     signal current_state, next_state : state_type;
 
     -- 32-bit internal registers for data handling
-    signal curr_local_dr_reg : std_logic_vector(31 downto 0);  
+    signal curr_local_dr_reg : std_logic_vector(31 downto 0):=x"C0FFEE00";  
     signal next_local_dr_reg : std_logic_vector(31 downto 0);
 
     -- 32-bit counter for tracking shifts during the ShiftDR state
@@ -40,7 +40,7 @@ begin
     begin
         case current_state is
             -- State: TestLogicReset
-            when TestLogicReset =>
+            when TestLogicReset =>            
                 if TMS = '0' then
                     next_state <= RunTestIdle;  -- Transition to RunTestIdle if TMS is 0
                 else
@@ -200,10 +200,13 @@ end process;
         if current_state = ShiftDR then
             -- Stay in this state for 32 clock cycles
             -- Shift out data from curr_local_dr_reg to TDI (MSB first)
-            TDI <= curr_local_dr_reg(31);
+           for i in 31 downto 0 loop
+    TDI <= curr_local_dr_reg(i);
+end loop;
+
 
             -- Shift in data from TDO into next_local_dr_reg (LSB first)
-            next_local_dr_reg <= next_local_dr_reg(30 downto 0) & TDO;
+            next_local_dr_reg <= next_local_dr_reg(31 downto 0) & TDO;
 
             -- Increment the bit counter
             if bit_counter < 31 then
