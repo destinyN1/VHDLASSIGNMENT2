@@ -9,9 +9,12 @@ entity JTAG_FSM is
         TCK : in std_logic;        -- Clock signal for the FSM (Test Clock)
         TMS : in std_logic;         -- Test Mode Select input signal for state transitions
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
-        TDI : out std_logic;          -- Serial data output pin (Test Data In)
-        TDO : in std_logic_vector(31 downto 0)           -- Serial data input pin (Test Data Out)
+        TDI : out std_logic:='0';        -- Serial data output pin (Test Data In)
+        TDO : in std_logic;   -- Serial data input pin (Test Data Out)
+    CaptureDRCheck: in std_logic
+        
     );
+    
 end JTAG_FSM;
 
 architecture Behavioral of JTAG_FSM is
@@ -27,19 +30,29 @@ architecture Behavioral of JTAG_FSM is
     signal current_state, next_state : state_type;
 
     -- 32-bit internal registers for data handling
-    signal curr_local_dr_reg : std_logic_vector(31 downto 0):=x"C0FFEE00";  
+    signal curr_local_dr_reg : std_logic_vector(31 downto 0);  
     signal next_local_dr_reg : std_logic_vector(31 downto 0);
+    signal TDOREG: std_logic_vector(31 downto 0):= x"DEADBEEF";
+   
 
     -- 32-bit counter for tracking shifts during the ShiftDR state
-    signal bit_counter : integer range 0 to 31 := 0;
+ signal  bit_counter : integer range 0 to 31;
+  
+    
 
 begin
 
     -- Combinational process to determine the next state based on the current state and TMS input
-   State_Logic_p: process(current_state, TMS)
+   State_Logic_p: process(bit_counter,current_state, TMS)
     begin
+    
+    
+    --default assignments to avoid latches
+    next_state <= current_state;
+    
+    
         case current_state is
-            -- State: TestLogicReset
+                               --State: TestLogicReset
             when TestLogicReset =>            
                 if TMS = '0' then
                     next_state <= RunTestIdle;  -- Transition to RunTestIdle if TMS is 0
@@ -49,6 +62,7 @@ begin
 
             -- State: RunTestIdle
             when RunTestIdle =>
+               
                 if TMS = '1' then
                     next_state <= SlctDRscan;  -- Transition to Select DR Scan if TMS is 1
                 else
@@ -57,6 +71,7 @@ begin
 
             -- State: Select DR Scan
             when SlctDRscan =>
+           
                 if TMS = '1' then
                     next_state <= SlctIRscan;  -- Transition to Select IR Scan if TMS is 1
                 else
@@ -65,6 +80,7 @@ begin
 
             -- State: CaptureDR
             when CaptureDR =>
+             
                 if TMS = '1' then
                     next_state <= Exit1DR;  -- Transition to Exit1DR if TMS is 1
                 else
@@ -73,6 +89,7 @@ begin
 
             -- State: ShiftDR
             when ShiftDR =>
+            
                 if TMS = '1' then
                     next_state <= Exit1DR;  -- Transition to Exit1DR if TMS is 1
                 else
@@ -81,6 +98,7 @@ begin
 
             -- State: Exit1DR
             when Exit1DR =>
+           
                 if TMS = '1' then
                     next_state <= UpdateDR;  -- Transition to UpdateDR if TMS is 1
                 else
@@ -89,6 +107,7 @@ begin
 
             -- State: PauseDR
             when PauseDR =>
+            
                 if TMS = '1' then
                     next_state <= Exit2DR;  -- Transition to Exit2DR if TMS is 1
                 else
@@ -97,6 +116,7 @@ begin
 
             -- State: Exit2DR
             when Exit2DR =>
+            
                 if TMS = '1' then
                     next_state <= UpdateDR;  -- Transition to UpdateDR if TMS is 1
                 else
@@ -105,6 +125,7 @@ begin
 
             -- State: UpdateDR
             when UpdateDR =>
+            
                 if TMS = '1' then
                     next_state <= SlctDRscan;  -- Transition to Select DR Scan if TMS is 1
                 else
@@ -113,6 +134,7 @@ begin
 
             -- State: Select IR Scan
             when SlctIRscan =>
+            
                 if TMS = '1' then
                     next_state <= TestLogicReset;  -- Transition to TestLogicReset if TMS is 1
                 else
@@ -121,6 +143,7 @@ begin
 
             -- State: CaptureIR
             when CaptureIR =>
+           
                 if TMS = '1' then
                     next_state <= Exit1IR;  -- Transition to Exit1IR if TMS is 1
                 else
@@ -129,6 +152,7 @@ begin
 
             -- State: ShiftIR
             when ShiftIR =>
+           
                 if TMS = '1' then
                     next_state <= Exit1IR;  -- Transition to Exit1IR if TMS is 1
                 else
@@ -137,6 +161,7 @@ begin
 
             -- State: Exit1IR
             when Exit1IR =>
+          
                 if TMS = '1' then
                     next_state <= UpdateIR;  -- Transition to UpdateIR if TMS is 1
                 else
@@ -145,6 +170,7 @@ begin
 
             -- State: PauseIR
             when PauseIR =>
+          
                 if TMS = '1' then
                     next_state <= Exit2IR;  -- Transition to Exit2IR if TMS is 1
                 else
@@ -153,6 +179,7 @@ begin
 
             -- State: Exit2IR
             when Exit2IR =>
+           
                 if TMS = '1' then
                     next_state <= UpdateIR;  -- Transition to UpdateIR if TMS is 1
                 else
@@ -161,6 +188,7 @@ begin
 
             -- State: UpdateIR
             when UpdateIR =>
+           
                 if TMS = '1' then
                     next_state <= SlctDRscan;  -- Transition to Select DR Scan if TMS is 1
                 else
@@ -169,19 +197,19 @@ begin
 
             -- Default case (should not occur in normal operation)
             when others =>
+            
                 next_state <= TestLogicReset;  -- Reset to a known state in case of an invalid state
         end case;
     end process;
 
     -- Sequential process to update the current state on the rising edge of TCK
-    State_reg_p: process(TCK, reset)
+    State_reg_p: process(CaptureDRCheck, bit_counter,TCK, reset)
     begin
         if reset = '1' then
              --Reset state and registers
             current_state <= TestLogicReset;
-            --curr_local_dr_reg <= x"C0FFEE00";
-            --next_local_dr_reg <= (others => '0');
-            --bit_counter <= 0;                
+ 
+                            
         elsif rising_edge(TCK) and reset = '0' then
             -- State Transition: Update current state
             current_state <= next_state;
@@ -189,41 +217,58 @@ begin
             end if;
 end process;
 
-    Data_Shift_p: process(TCK)
-    begin
+    -- Data Shifting Process
+Data_Shift_p: process(CaptureDRCheck, bit_counter, TCK)
+begin
+
     if rising_edge(TCK) then
-        -- Default assignments to avoid latches
-        TDI <= '0';  -- Set default value for TDI
-        next_local_dr_reg <= next_local_dr_reg;  -- Maintain current value unless in ShiftDR
-
-        -- Data Shifting Logic in ShiftDR state
-        if current_state = ShiftDR then
-            -- Stay in this state for 32 clock cycles
-            -- Shift out data from curr_local_dr_reg to TDI (MSB first)
-           for i in 31 downto 0 loop
-    TDI <= curr_local_dr_reg(i);
-end loop;
-
-
-            -- Shift in data from TDO into next_local_dr_reg (LSB first)
-            next_local_dr_reg <= next_local_dr_reg(31 downto 0) & TDO;
-
-            -- Increment the bit counter
-            if bit_counter < 31 then
-                bit_counter <= bit_counter + 1;
-            else
-                bit_counter <= 0;  -- Reset counter after 32 bits
+        
+        if current_state = TestLogicReset then
+             curr_local_dr_reg <= x"C0FFEE00";
+            next_local_dr_reg <= (others => '0');
             end if;
+        
+       
+        
+        if current_state = ShiftDR then
+     
+            -- Shift out data from curr_local_dr_reg to TDI (MSB first)
+            TDI <= curr_local_dr_reg(31 - bit_counter);
+          
+
+            -- Shift in data from TDO into next_local_dr_reg (MSB first)
+            next_local_dr_reg(31 - bit_counter) <= TDO;
         end if;
 
-        -- Register Update Logic in UpdateDR state
-        if current_state = UpdateDR then
+        -- Register Update Logic in CaptureDR state
+        if current_state = CaptureDR and CaptureDRCheck = '1' then 
             -- Update curr_local_dr_reg with the value in next_local_dr_reg
             curr_local_dr_reg <= next_local_dr_reg;
-            --need some TDI assignment here?
+        
         end if;
     end if;
 end process;
+
+
+-- Counter Process
+Counter_p: process(bit_counter, TCK, reset)
+begin
+    if reset = '1' then
+        bit_counter <= 0;
+   elsif rising_edge(TCK) then
+        if current_state = ShiftDR then
+    
+            if bit_counter < 31 then
+                bit_counter <= bit_counter + 1;
+            else
+                bit_counter <= 0;  -- Reset after 32 bits
+            end if;
+        else
+            bit_counter <= 0;  -- Reset counter when not in ShiftDR
+        end if;
+    end if;
+end process;
+
 
 
 end Behavioral;
