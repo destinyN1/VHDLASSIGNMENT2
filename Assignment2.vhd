@@ -9,8 +9,8 @@ entity JTAG_FSM is
         TCK : in std_logic;        -- Clock signal for the FSM (Test Clock)
         TMS : in std_logic;         -- Test Mode Select input signal for state transitions
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
-        TDI : out std_logic:='0';        -- Serial data output pin (Test Data In)
-        TDO : in std_logic;   -- Serial data input pin (Test Data Out)
+        TDO : out std_logic:='0';       -- Serial data output pin (Test Data In)
+        TDI : in std_logic:='0';     -- Serial data input pin (Test Data Out)
     CaptureDRCheck: in std_logic
         
     );
@@ -233,11 +233,13 @@ begin
         if current_state = ShiftDR then
      
             -- Shift out data from curr_local_dr_reg to TDI (MSB first)
-            TDI <= curr_local_dr_reg(31 - bit_counter);
+            TDO <= curr_local_dr_reg(31 - bit_counter);
           
-
+            if next_local_dr_reg /= x"DEADBEEF" then 
             -- Shift in data from TDO into next_local_dr_reg (MSB first)
-            next_local_dr_reg(31 - bit_counter) <= TDO;
+            next_local_dr_reg(31 - bit_counter) <= TDI;
+            end if;
+            
         end if;
 
         -- Register Update Logic in CaptureDR state

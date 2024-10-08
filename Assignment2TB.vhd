@@ -14,8 +14,8 @@ ARCHITECTURE behavior OF tb_JTAG_FSM IS
          TCK   : IN  std_logic;       -- Clock signal for the FSM (Test Clock)
          TMS   : IN  std_logic;       -- Test Mode Select input signal for state transitions
          reset : IN  std_logic;       -- Reset signal to initialize FSM to the TestLogicReset state
-         TDI   : OUT std_logic;       -- Serial data output pin (Test Data In)
-         TDO   : IN  std_logic;      -- Serial data input pin (Test Data Out)
+         TDI   : IN std_logic;       -- Serial data output pin (Test Data In)
+         TDO   : OUT  std_logic;      -- Serial data input pin (Test Data Out)
          CaptureDRCheck:  in std_logic
          
 
@@ -26,9 +26,9 @@ ARCHITECTURE behavior OF tb_JTAG_FSM IS
     SIGNAL TCK    : std_logic := '0';
     SIGNAL TMS    : std_logic := '0';
     SIGNAL reset  : std_logic := '0';
-    SIGNAL TDI    : std_logic;
-    SIGNAL TDO    : std_logic := '0';
-    SIGNAL TDOREG: std_logic_vector(31 downto 0):= x"DEADBEEF";
+    SIGNAL TDI    : std_logic := '0';
+    SIGNAL TDO    : std_logic;
+    SIGNAL TDIREG: std_logic_vector(31 downto 0):= x"DEADBEEF";
     signal  bit_countertb : integer range 0 to 31:=0;
     SIGNAL TDOtb    : std_logic := '0';
     SIGNAL   CaptureDRCheck:  std_logic:='0';
@@ -121,7 +121,12 @@ begin
    CaptureDRCheck <= '1';
    wait for clk_period; 
    
-   wait for 320 ns;
+   wait for 50 ns;
+
+ CaptureDRCheck <= '0';
+ 
+ tms <='0';
+ wait for 350 ns;
 
 end process;
 
@@ -129,7 +134,7 @@ end process;
 begin 
  wait for 70 ns;
   for i in 0 to 31 loop
-   TDO <= TDOREG(31-bit_countertb);
+   TDI <= TDIREG(31-bit_countertb);
    bit_countertb <= bit_countertb + 1;
    
     wait for  clk_period;
