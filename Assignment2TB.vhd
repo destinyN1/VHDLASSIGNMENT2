@@ -91,10 +91,9 @@ begin
     wait for 20ns;
     
     --ShiftDR
-
     TMS<='0';
    
-    WAIT for 400 ns;
+    WAIT for 400 ns; -- Allowing time for TDO to read curr_local_dr_reg serially
    
    --Exit1 DR 
    TMS <='1';
@@ -121,15 +120,16 @@ begin
    CaptureDRCheck <= '1';
    wait for clk_period; 
    
-   wait for 50 ns;
+   wait for 50 ns; -- Arbitrary buffer 
 
- CaptureDRCheck <= '0';
+ CaptureDRCheck <= '0'; -- Set low to allow curr_local_dr_reg to take on value of next_local_dr_reg 
  
- tms <='0';
- wait for 350 ns;
+ tms <='0'; -- staying in ShiftDR state 
+ wait for 350 ns; -- allowing time for TDO to read x"DEADBEEF" from curr_local_dr_reg
 
 end process;
 
+--Incrementing bit positions in test-bench register to inject values into TDI 
  tb_inc: process
 begin 
  wait for 70 ns;
@@ -139,7 +139,7 @@ begin
    
     wait for  clk_period;
      end loop;
-     bit_countertb<= 0;
+     bit_countertb<= 0; -- Reset counter to zero once done incrementing
      wait;
      end process;
 

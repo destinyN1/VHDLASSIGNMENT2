@@ -11,7 +11,7 @@ entity JTAG_FSM is
         reset : in std_logic;          -- Reset signal to initialize FSM to the TestLogicReset state
         TDO : out std_logic:='0';       -- Serial data output pin (Test Data In)
         TDI : in std_logic:='0';     -- Serial data input pin (Test Data Out)
-    CaptureDRCheck: in std_logic
+    CaptureDRCheck: in std_logic   --Signal to allow curr_local_dr_reg to take on the value of next_local_dr_reg when HIGH
         
     );
     
@@ -32,7 +32,7 @@ architecture Behavioral of JTAG_FSM is
     -- 32-bit internal registers for data handling
     signal curr_local_dr_reg : std_logic_vector(31 downto 0);  
     signal next_local_dr_reg : std_logic_vector(31 downto 0);
-    signal TDOREG: std_logic_vector(31 downto 0):= x"DEADBEEF";
+   -- signal TDOREG: std_logic_vector(31 downto 0):= x"DEADBEEF"; ( SIGNAL HERE FOR DEBUGGING)
    
 
     -- 32-bit counter for tracking shifts during the ShiftDR state
@@ -223,6 +223,7 @@ begin
 
     if rising_edge(TCK) then
         
+        --When in Default state reset registers to Default values
         if current_state = TestLogicReset then
              curr_local_dr_reg <= x"C0FFEE00";
             next_local_dr_reg <= (others => '0');
@@ -255,13 +256,14 @@ end process;
 -- Counter Process
 Counter_p: process(bit_counter, TCK, reset)
 begin
-    if reset = '1' then
-        bit_counter <= 0;
+ -- Reset counter asynchronously if HIGH
+    if reset = '1' then 
+        bit_counter <= 0; 
    elsif rising_edge(TCK) then
         if current_state = ShiftDR then
     
             if bit_counter < 31 then
-                bit_counter <= bit_counter + 1;
+                bit_counter <= bit_counter + 1; -- Increment bit counter 
             else
                 bit_counter <= 0;  -- Reset after 32 bits
             end if;
